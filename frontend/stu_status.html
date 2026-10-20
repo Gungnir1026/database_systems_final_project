@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h2::before {
+            content: "📊";
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>申請進度查詢</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>申請編號</th>
+                <th>獎學金名稱</th>
+                <th>申請日期</th>
+                <th>排名</th>
+                <th>成績</th>
+                <th>審核狀態</th>
+            </tr>
+        </thead>
+        <tbody id="applicationList">
+            <tr><td colspan="6" class="empty-msg">載入中...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+
+        async function loadApplications() {
+            try {
+                const res = await fetch(`/api/student/applications/${userId}`);
+                const data = await res.json();
+                const tbody = document.getElementById('applicationList');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="no-data">您目前沒有任何申請紀錄</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(app => {
+                    let statusClass = '';
+                    if (app.status === '待審核') statusClass = 'status-pending';
+                    else if (app.status === '通過') statusClass = 'status-approved';
+                    else if (app.status === '不通過') statusClass = 'status-rejected';
+
+                    return html`
+                        <tr>
+                            <td>${app.application_id}</td>
+                            <td>${app.scholarship_title || '-'}</td>
+                            <td>${app.application_date}</td>
+                            <td>${app.ranking || '-'}</td>
+                            <td>${app.grade || '-'}</td>
+                            <td class="${statusClass}">${app.status}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                document.getElementById('applicationList').innerHTML = '<tr><td colspan="6">載入失敗</td></tr>';
+            }
+        }
+
+        loadApplications();
+    </script>
+</body>
+</html>

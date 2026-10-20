@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #2c5aa0; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "✉️"; }
+        th { background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%); }
+        .form-section h3 { color: #2c5aa0; }
+        .form-group textarea { 
+            height: 250px; 
+            max-width: 100%;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+        .btn-primary { 
+            background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%); 
+        }
+        .btn-primary:hover { 
+            box-shadow: 0 5px 15px rgba(44, 90, 160, 0.4); 
+        }
+        .info-box { 
+            border-left-color: #2c5aa0; 
+        }
+        .info-box p { 
+            margin: 10px 0; 
+        }
+        .no-selection {
+            margin-top: 20px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            color: #666;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2 id="pageTitle">推薦信管理</h2>
+
+    <div class="form-section" id="selectSection">
+        <h3>選擇申請案件</h3>
+        <div class="form-group">
+            <label>可撰寫推薦信的申請</label>
+            <select id="applicationSelect" onchange="loadApplicationInfo()">
+                <option value="">請選擇...</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="infoBox" class="info-box" style="display: none;">
+        <p><strong>👤 學生姓名：</strong><span id="studentName"></span></p>
+        <p><strong>🎓 學號：</strong><span id="studentId"></span></p>
+        <p><strong>🏆 申請獎學金：</strong><span id="scholarshipTitle"></span></p>
+        <p><strong>📅 申請日期：</strong><span id="applicationDate"></span></p>
+        <p><strong>📊 排名/成績：</strong><span id="rankGrade"></span></p>
+    </div>
+
+    <div id="letterForm" class="form-section" style="display: none;">
+        <h3>推薦信內容</h3>
+        <div class="form-group">
+            <textarea id="letterContent" placeholder="請輸入推薦信內容..."></textarea>
+        </div>
+
+        <button class="btn btn-primary" onclick="submitLetter()">📤 送出推薦信</button>
+        <button class="btn btn-secondary" onclick="goBack()">↩️ 返回列表</button>
+        <div id="result" class="result"></div>
+    </div>
+
+    <div id="noSelection" class="no-selection">
+        <p>📋 請先從「學生申請紀錄」中選擇一筆申請來撰寫或編輯推薦信，或從上方下拉選單選擇。</p>
+    </div>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+        let teacherId = null;
+        let currentAppId = null;
+        let currentLetterId = null;
+        let isEditMode = false;
+        let applicationsData = [];
+
+        // 從 URL 取得參數
+        const urlParams = new URLSearchParams(window.location.search);
+        const appIdFromUrl = urlParams.get('app_id');
+        const modeFromUrl = urlParams.get('mode');
+
+        // 先取得 teacher_id
+        async function getTeacherId() {
+            try {
+                const res = await fetch(`/api/teacher/profile/${userId}`);
+                const data = await res.json();
+                teacherId = data.teacher_id;
+                return teacherId;
+            } catch (e) {
+                console.error('取得導師ID失敗', e);
+                return null;
+            }
+        }
+
+        async function loadApplications() {
+            if (!teacherId) {
+                teacherId = await getTeacherId();
+            }
+            if (!teacherId) {
+                console.error('無法取得導師ID');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/teacher/applications/${teacherId}`);
+                applicationsData = await res.json();
+                const select = document.getElementById('applicationSelect');
+                
+                if (applicationsData.length === 0) {
+                    select.innerHTML = '<option value="">目前沒有需要撰寫推薦信的申請</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">請選擇...</option>' + 
+                    applicationsData.map(app => {
+                        const letterStatus = app.has_letter > 0 ? '(已撰寫)' : '(未撰寫)';
+                        return html`<option value="${app.application_id}">${app.student_name} - ${app.scholarship_title} ${letterStatus}</option>`;
+                    }).join('');
+
+                // 如果有從 URL 帶入的 app_id，自動選取
+                if (appIdFromUrl) {
+                    select.value = appIdFromUrl;
+                    loadApplicationInfo();
+                }
+            } catch (e) {
+                console.error('載入申請失敗', e);
+            }
+        }
+
+        async function loadApplicationInfo() {
+            const appId = document.getElementById('applicationSelect').value;
+            if (!appId) {
+                document.getElementById('infoBox').style.display = 'none';
+                document.getElementById('letterForm').style.display = 'none';
+                document.getElementById('noSelection').style.display = 'block';
+                return;
+            }
+
+            currentAppId = appId;
+            const app = applicationsData.find(a => a.application_id == appId);
+            
+            if (app) {
+                document.getElementById('studentName').innerText = app.student_name;
+                document.getElementById('studentId').innerText = app.student_number || '-';
+                document.getElementById('scholarshipTitle').innerText = app.scholarship_title;
+                document.getElementById('applicationDate').innerText = app.application_date;
+                document.getElementById('rankGrade').innerText = `排名 ${app.ranking || '-'} / 成績 ${app.grade || '-'}`;
+                
+                document.getElementById('infoBox').style.display = 'block';
+                document.getElementById('letterForm').style.display = 'block';
+                document.getElementById('noSelection').style.display = 'none';
+
+                // 檢查是否已有推薦信
+                await loadExistingLetter(appId);
+            }
+        }
+
+        async function loadExistingLetter(appId) {
+            try {
+                const res = await fetch(`/api/teacher/recommendation/${appId}/${teacherId}`);
+                const data = await res.json();
+                
+                if (data.exists) {
+                    isEditMode = true;
+                    currentLetterId = data.letter.letter_id;
+                    document.getElementById('letterContent').value = data.letter.content;
+                    document.getElementById('pageTitle').innerText = '編輯推薦信';
+                } else {
+                    isEditMode = false;
+                    currentLetterId = null;
+                    document.getElementById('letterContent').value = '';
+                    document.getElementById('pageTitle').innerText = '撰寫推薦信';
+                }
+            } catch (e) {
+                console.error('載入推薦信失敗', e);
+            }
+        }
+
+        async function submitLetter() {
+            const content = document.getElementById('letterContent').value.trim();
+            if (!content) {
+                alert('請輸入推薦信內容');
+                return;
+            }
+
+            try {
+                let res;
+                if (isEditMode && currentLetterId) {
+                    // 更新
+                    res = await fetch(`/api/teacher/recommendation/${currentLetterId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content })
+                    });
+                } else {
+                    // 新增
+                    res = await fetch('/api/teacher/recommendation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            teacher_id: teacherId,
+                            application_id: currentAppId,
+                            content: content
+                        })
+                    });
+                }
+
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('result').innerText = data.message;
+                    document.getElementById('result').className = 'result success';
+                    // 重新載入以更新狀態
+                    await loadApplications();
+                    await loadExistingLetter(currentAppId);
+                } else {
+                    document.getElementById('result').innerText = data.message;
+                    document.getElementById('result').className = 'result error';
+                }
+            } catch (e) {
+                document.getElementById('result').innerText = '連線失敗';
+                document.getElementById('result').className = 'result error';
+            }
+        }
+
+        function goBack() {
+            window.location.href = 'teacher_applications.html';
+        }
+
+        loadApplications();
+    </script>
+</body>
+</html>

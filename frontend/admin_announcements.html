@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>公告管理</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "📢"; }
+        .form-section h3 { color: #343a40; }
+        .btn-primary { background: linear-gradient(135deg, #343a40 0%, #212529 100%); }
+        .btn-primary:hover { box-shadow: 0 5px 15px rgba(52, 58, 64, 0.4); }
+        h3 { margin-top: 30px; margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 8px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 25px; border-radius: 12px; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; }
+        .close { font-size: 28px; cursor: pointer; color: #666; }
+        .close:hover { color: #333; }
+        .btn-group { display: flex; gap: 8px; }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>公告管理</h2>
+
+    <div class="form-section">
+        <h3>📝 發布新公告</h3>
+        <form id="announcementForm">
+            <div class="form-group">
+                <label>公告標題</label>
+                <input type="text" id="title" required>
+            </div>
+            <div class="form-group">
+                <label>公告內容</label>
+                <textarea id="content" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">📤 發布公告</button>
+        </form>
+        <div id="formMessage" class="result"></div>
+    </div>
+
+    <h3>📋 現有公告列表</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>標題</th>
+                <th>內容</th>
+                <th>發布時間</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="announcementTable"></tbody>
+    </table>
+
+    <!-- 編輯模態框 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ 編輯公告</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label>公告標題</label>
+                    <input type="text" id="editTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>公告內容</label>
+                    <textarea id="editContent" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">💾 儲存變更</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+
+        document.getElementById('announcementForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const msgEl = document.getElementById('formMessage');
+
+            try {
+                const res = await fetch(`${API}/announcements`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+                if (res.ok) {
+                    msgEl.className = 'result success';
+                    msgEl.textContent = '✅ 公告發布成功！';
+                    document.getElementById('title').value = '';
+                    document.getElementById('content').value = '';
+                    loadAnnouncements();
+                } else {
+                    msgEl.className = 'result error';
+                    msgEl.textContent = '❌ 發布失敗';
+                }
+            } catch (err) {
+                msgEl.className = 'result error';
+                msgEl.textContent = '❌ 發布失敗：' + err.message;
+            }
+        });
+
+        async function loadAnnouncements() {
+            try {
+                const res = await fetch(`${API}/announcements`);
+                const list = await res.json();
+                const tbody = document.getElementById('announcementTable');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">目前沒有公告</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(a => html`
+                    <tr>
+                        <td>${a.Announcement_NUMBER}</td>
+                        <td>${a.TITLE}</td>
+                        <td>${a.CONTENT.substring(0, 50)}${a.CONTENT.length > 50 ? '...' : ''}</td>
+                        <td>${new Date(a.announcement_date).toLocaleDateString('zh-TW')}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-info" data-record="${JSON.stringify(a)}" onclick="openEdit(JSON.parse(this.dataset.record))">編輯</button>
+                                <button class="btn btn-danger" onclick="deleteAnnouncement(${a.Announcement_NUMBER})">刪除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('載入公告失敗', err);
+            }
+        }
+
+        function openEdit(a) {
+            document.getElementById('editId').value = a.Announcement_NUMBER;
+            document.getElementById('editTitle').value = a.TITLE;
+            document.getElementById('editContent').value = a.CONTENT;
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const title = document.getElementById('editTitle').value;
+            const content = document.getElementById('editContent').value;
+
+            try {
+                const res = await fetch(`${API}/admin/announcement/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+                if (res.ok) {
+                    alert('✅ 更新成功');
+                    closeModal();
+                    loadAnnouncements();
+                } else {
+                    alert('❌ 更新失敗');
+                }
+            } catch (err) {
+                alert('❌ 更新失敗：' + err.message);
+            }
+        });
+
+        async function deleteAnnouncement(id) {
+            if (!confirm('確定要刪除此公告嗎？')) return;
+            try {
+                const res = await fetch(`${API}/admin/announcement/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('✅ 刪除成功');
+                    loadAnnouncements();
+                } else {
+                    alert('❌ 刪除失敗');
+                }
+            } catch (err) {
+                alert('❌ 刪除失敗：' + err.message);
+            }
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('editModal')) {
+                closeModal();
+            }
+        }
+
+        loadAnnouncements();
+    </script>
+</body>
+</html>

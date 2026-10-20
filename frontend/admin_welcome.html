@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "⚙️"; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-card h3 { margin: 0 0 10px; color: #555; font-size: 0.95em; font-weight: 500; }
+        .stat-card .number { font-size: 2.2em; font-weight: bold; color: #343a40; }
+        .section-title {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .announcement-item { 
+            background: white; 
+            padding: 20px; 
+            margin-bottom: 15px; 
+            border-left: 4px solid #343a40; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .announcement-item:hover { transform: translateX(5px); }
+        .announcement-item h4 { margin: 0 0 10px; color: #333; font-weight: 600; }
+        .announcement-preview {
+            color: #666;
+            line-height: 1.6;
+            max-height: 45px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .announcement-date { color: #999; font-size: 0.85em; margin-top: 12px; }
+        .read-more { color: #343a40; font-size: 0.85em; margin-top: 8px; font-weight: 500; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); }
+        .modal-content { background: white; margin: 5% auto; border-radius: 16px; max-width: 700px; max-height: 80vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: modalIn 0.3s ease; }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-header { background: linear-gradient(135deg, #343a40 0%, #212529 100%); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
+        .modal-header h3 { margin: 0; font-size: 1.3em; color: white; }
+        .modal-close { font-size: 28px; cursor: pointer; opacity: 0.8; }
+        .modal-close:hover { opacity: 1; }
+        .modal-body { padding: 25px; max-height: 60vh; overflow-y: auto; }
+        .modal-meta { font-size: 0.9em; color: #888; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .modal-text { line-height: 1.8; color: #444; white-space: pre-wrap; }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>系統管理員控制台</h2>
+
+    <div class="stats">
+        <div class="stat-card">
+            <h3>👨‍🎓 學生數量</h3>
+            <div class="number" id="studentCount">-</div>
+        </div>
+        <div class="stat-card">
+            <h3>👨‍🏫 導師數量</h3>
+            <div class="number" id="teacherCount">-</div>
+        </div>
+        <div class="stat-card">
+            <h3>🏢 獎助單位</h3>
+            <div class="number" id="providerCount">-</div>
+        </div>
+        <div class="stat-card">
+            <h3>💰 獎助學金</h3>
+            <div class="number" id="scholarshipCount">-</div>
+        </div>
+        <div class="stat-card">
+            <h3>📝 申請數量</h3>
+            <div class="number" id="applicationCount">-</div>
+        </div>
+    </div>
+
+    <h3 class="section-title">📢 最新公告</h3>
+    <div id="announcementList"></div>
+
+    <div id="announcementModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <span class="modal-close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-meta" id="modalMeta"></div>
+                <div class="modal-text" id="modalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+        let announcements = [];
+
+        async function loadStats() {
+            try {
+                const [students, teachers, providers, scholarships, applications] = await Promise.all([
+                    fetch(`${API}/admin/students`).then(r => r.json()),
+                    fetch(`${API}/admin/teachers`).then(r => r.json()),
+                    fetch(`${API}/admin/providers`).then(r => r.json()),
+                    fetch(`${API}/scholarships`).then(r => r.json()),
+                    fetch(`${API}/admin/applications`).then(r => r.json())
+                ]);
+                document.getElementById('studentCount').textContent = students.length;
+                document.getElementById('teacherCount').textContent = teachers.length;
+                document.getElementById('providerCount').textContent = providers.length;
+                document.getElementById('scholarshipCount').textContent = scholarships.length;
+                document.getElementById('applicationCount').textContent = applications.length;
+            } catch (e) {
+                console.error('載入統計失敗', e);
+            }
+        }
+
+        async function loadAnnouncements() {
+            try {
+                const res = await fetch(`${API}/announcements`);
+                announcements = await res.json();
+                const container = document.getElementById('announcementList');
+                if (announcements.length === 0) {
+                    container.innerHTML = '<p style="color:#888; text-align:center; padding:30px;">目前沒有公告</p>';
+                    return;
+                }
+                container.innerHTML = announcements.slice(0, 5).map((a, index) => html`
+                    <div class="announcement-item" onclick="openModal(${index})">
+                        <h4>${a.TITLE}</h4>
+                        <p class="announcement-preview">${a.CONTENT}</p>
+                        <div class="announcement-date">📅 ${a.announcement_date}</div>
+                        <div class="read-more">👆 點擊查看完整公告</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('announcementList').innerHTML = '<p style="color:#888;">載入公告失敗</p>';
+            }
+        }
+
+        function openModal(index) {
+            const a = announcements[index];
+            document.getElementById('modalTitle').textContent = a.TITLE;
+            document.getElementById('modalMeta').innerHTML = `📅 ${a.announcement_date} | 發布者：${a.admin_name || '管理員'}`;
+            document.getElementById('modalContent').textContent = a.CONTENT;
+            document.getElementById('announcementModal').style.display = 'block';
+        }
+        function closeModal() { document.getElementById('announcementModal').style.display = 'none'; }
+        window.onclick = function(event) { if (event.target == document.getElementById('announcementModal')) closeModal(); }
+
+        loadStats();
+        loadAnnouncements();
+    </script>
+</body>
+</html>

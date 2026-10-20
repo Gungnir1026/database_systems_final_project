@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h2::before {
+            content: "🎓";
+        }
+        .amount { 
+            color: #28a745; 
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .expired { 
+            color: #dc3545; 
+            font-weight: 600;
+        }
+        .active { 
+            color: #28a745; 
+            font-weight: 600;
+        }
+        .pending {
+            color: #ffc107;
+            font-weight: 600;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>瀏覽獎助學金資訊</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>獎學金名稱</th>
+                <th>說明</th>
+                <th>金額</th>
+                <th>提供單位</th>
+                <th>申請起始日</th>
+                <th>申請截止日</th>
+                <th>狀態</th>
+            </tr>
+        </thead>
+        <tbody id="scholarshipList">
+            <tr><td colspan="7" class="empty-msg">載入中...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        async function loadScholarships() {
+            try {
+                const res = await fetch('/api/scholarships');
+                const data = await res.json();
+                const tbody = document.getElementById('scholarshipList');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7">目前沒有獎學金資訊</td></tr>';
+                    return;
+                }
+
+                const today = todayTaipei();
+                tbody.innerHTML = data.map(s => {
+                    const deadline = s.application_deadline;
+                    const startDate = s.application_start_date;
+                    let status = '';
+                    let statusClass = '';
+                    
+                    if (today < startDate) {
+                        status = '尚未開始';
+                        statusClass = '';
+                    } else if (today > deadline) {
+                        status = '已截止';
+                        statusClass = 'expired';
+                    } else {
+                        status = '開放申請中';
+                        statusClass = 'active';
+                    }
+
+                    return html`
+                        <tr>
+                            <td>${s.title}</td>
+                            <td>${s.description || '-'}</td>
+                            <td class="amount">$${Number(s.scholarship_amount).toLocaleString()}</td>
+                            <td>${s.organization_name || '-'}</td>
+                            <td>${s.application_start_date}</td>
+                            <td>${s.application_deadline}</td>
+                            <td class="${statusClass}">${status}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                document.getElementById('scholarshipList').innerHTML = '<tr><td colspan="7">載入失敗</td></tr>';
+            }
+        }
+
+        loadScholarships();
+    </script>
+</body>
+</html>

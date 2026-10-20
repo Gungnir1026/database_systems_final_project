@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #2c5aa0; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "📋"; }
+        th { background: linear-gradient(135deg, #555555 0%, #555555 100%); }
+        .letter-yes { color: #28a745; font-weight: 600; }
+        .letter-no { color: #dc3545; font-weight: 600; }
+        .btn-primary { 
+            background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%); 
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        .btn-primary:hover { box-shadow: 0 5px 15px rgba(44, 90, 160, 0.4); }
+        .description {
+            color: #666;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #e7f0ff 0%, #f0e8ff 100%);
+            border-radius: 8px;
+            border-left: 4px solid #2c5aa0;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>學生申請紀錄</h2>
+    <p class="description">📌 以下是指定您為推薦人的獎學金申請紀錄，您可以為學生撰寫或編輯推薦信</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>申請編號</th>
+                <th>學生姓名</th>
+                <th>學號</th>
+                <th>系所</th>
+                <th>獎學金名稱</th>
+                <th>申請日期</th>
+                <th>排名</th>
+                <th>成績</th>
+                <th>審核狀態</th>
+                <th>推薦信</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="applicationList">
+            <tr><td colspan="11" class="empty-msg">載入中...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+        let teacherId = null;
+
+        // 先取得 teacher_id
+        async function getTeacherId() {
+            try {
+                const res = await fetch(`/api/teacher/profile/${userId}`);
+                const data = await res.json();
+                teacherId = data.teacher_id;
+                return teacherId;
+            } catch (e) {
+                console.error('取得導師ID失敗', e);
+                return null;
+            }
+        }
+
+        async function loadApplications() {
+            if (!teacherId) {
+                teacherId = await getTeacherId();
+            }
+            if (!teacherId) {
+                document.getElementById('applicationList').innerHTML = '<tr><td colspan="11">無法取得導師資訊</td></tr>';
+                return;
+            }
+            try {
+                const res = await fetch(`/api/teacher/applications/${teacherId}`);
+                const data = await res.json();
+                const tbody = document.getElementById('applicationList');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="11" class="no-data">目前沒有學生申請紀錄</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(app => {
+                    let statusClass = '';
+                    if (app.status === '待審核') statusClass = 'status-pending';
+                    else if (app.status === '通過') statusClass = 'status-approved';
+                    else if (app.status === '不通過') statusClass = 'status-rejected';
+
+                    const hasLetter = app.has_letter > 0;
+                    const letterStatus = hasLetter 
+                        ? html`<span class="letter-yes">✓ 已撰寫</span>` 
+                        : html`<span class="letter-no">✗ 未撰寫</span>`;
+
+                    const actionBtn = hasLetter
+                        ? html`<button class="btn btn-primary" onclick="editLetter(${app.application_id})">編輯推薦信</button>`
+                        : html`<button class="btn btn-primary" onclick="writeLetter(${app.application_id})">撰寫推薦信</button>`;
+
+                    return html`
+                        <tr>
+                            <td>${app.application_id}</td>
+                            <td>${app.student_name}</td>
+                            <td>${app.student_number || '-'}</td>
+                            <td>${app.student_dept || '-'}</td>
+                            <td>${app.scholarship_title}</td>
+                            <td>${app.application_date}</td>
+                            <td>${app.ranking || '-'}</td>
+                            <td>${app.grade || '-'}</td>
+                            <td class="${statusClass}">${app.status}</td>
+                            <td>${letterStatus}</td>
+                            <td>${actionBtn}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                document.getElementById('applicationList').innerHTML = '<tr><td colspan="11">載入失敗</td></tr>';
+            }
+        }
+
+        function writeLetter(appId) {
+            // 導向推薦信頁面並帶入申請ID
+            window.location.href = `teacher_recommendation.html?app_id=${appId}&mode=new`;
+        }
+
+        function editLetter(appId) {
+            window.location.href = `teacher_recommendation.html?app_id=${appId}&mode=edit`;
+        }
+
+        loadApplications();
+    </script>
+</body>
+</html>

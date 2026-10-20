@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>推薦信管理</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "✉️"; }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>推薦信管理</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>推薦信ID</th>
+                <th>申請ID</th>
+                <th>學生</th>
+                <th>導師</th>
+                <th>建立時間</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="recommendationTable"></tbody>
+    </table>
+
+    <!-- 推薦信內容 Modal -->
+    <div id="contentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h3>📄 推薦信內容</h3>
+            <p id="letterContent"></p>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+
+        async function loadRecommendations() {
+            try {
+                const res = await fetch(`${API}/admin/recommendations`);
+                const list = await res.json();
+                const tbody = document.getElementById('recommendationTable');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">目前沒有推薦信資料</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(r => html`
+                    <tr>
+                        <td>${r.letter_id}</td>
+                        <td>${r.application_id}</td>
+                        <td>${r.student_name || '-'}</td>
+                        <td>${r.teacher_name || '-'}</td>
+                        <td>${r.created_at ? new Date(r.created_at).toLocaleDateString('zh-TW') : '-'}</td>
+                        <td>
+                            <button class="btn btn-info" onclick="viewContent('${encodeURIComponent(r.content || '').replace(/'/g, '%27')}')">查看</button>
+                            <button class="btn btn-danger" onclick="deleteRecommendation(${r.letter_id})">刪除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('載入失敗', err);
+            }
+        }
+
+        function viewContent(content) {
+            document.getElementById('letterContent').textContent = decodeURIComponent(content);
+            document.getElementById('contentModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('contentModal').style.display = 'none';
+        }
+
+        async function deleteRecommendation(id) {
+            if (!confirm('確定要刪除此推薦信嗎？')) return;
+            try {
+                const res = await fetch(`${API}/admin/recommendation/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('刪除成功');
+                    loadRecommendations();
+                } else {
+                    const data = await res.json();
+                    alert('刪除失敗：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('刪除失敗：' + err.message);
+            }
+        }
+
+        // 點擊 modal 外部關閉
+        window.onclick = function(e) {
+            if (e.target === document.getElementById('contentModal')) {
+                closeModal();
+            }
+        }
+
+        loadRecommendations();
+    </script>
+</body>
+</html>

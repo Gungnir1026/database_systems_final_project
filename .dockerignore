@@ -1,0 +1,10 @@
+**/node_modules
+**/.DS_Store
+.git
+.env
+.env.*
+docs
+scripts
+.github
+backend/test
+*.zip

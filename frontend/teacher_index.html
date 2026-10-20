@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>導師系統首頁</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        header { 
+            background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%);
+            color: white; 
+            padding: 15px 25px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        header h2 { margin: 0; font-weight: 600; }
+        #container { display: flex; flex: 1; height: 100%; }
+        aside { 
+            width: 220px; 
+            background-color: #f8f9fa; 
+            border-right: 1px solid #e0e0e0; 
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        aside a { 
+            display: block; 
+            padding: 12px 15px; 
+            margin-bottom: 8px; 
+            text-decoration: none; 
+            color: #333; 
+            background-color: #fff; 
+            text-align: center;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        aside a:hover, aside a[aria-current="page"] { 
+            background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%);
+            color: white;
+            border-color: transparent;
+            transform: translateX(5px);
+        }
+        main { flex: 1; display: flex; flex-direction: column; background: #f5f5f5; }
+        iframe { width: 100%; height: 100%; border: none; }
+        .logout-btn { 
+            background-color: rgba(255,255,255,0.2); 
+            color: white; 
+            border: 2px solid white; 
+            padding: 8px 20px; 
+            border-radius: 20px; 
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .logout-btn:hover { background-color: white; color: #2c5aa0; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-info span { font-weight: 500; }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h2>👨‍🏫 導師管理系統</h2>
+        <div class="user-info">
+            <span id="welcomeUser"></span>
+            <button class="logout-btn" onclick="logout()">登出</button>
+        </div>
+    </header>
+
+    <div id="container">
+        <aside>
+            <a href="teacher_welcome.html" target="content-frame">🏠 首頁公告</a>
+            <a href="teacher_profile.html" target="content-frame">👤 個人資料維護</a>
+            <a href="teacher_applications.html" target="content-frame">📋 學生申請紀錄</a>
+            <a href="teacher_recommendation.html" target="content-frame">✉️ 推薦信管理</a>
+        </aside>
+
+        <main>
+            <iframe name="content-frame" src="teacher_welcome.html"></iframe>
+        </main>
+    </div>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+        const username = localStorage.getItem('username');
+        if (!userId) {
+            window.location.href = 'login.html';
+        } else {
+            document.getElementById('welcomeUser').innerText = `歡迎，${username} 老師`;
+        }
+
+        async function logout() { await logoutSession(); }
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>申請資料管理</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "📝"; }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>申請資料管理</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>申請ID</th>
+                <th>學生</th>
+                <th>獎學金</th>
+                <th>指定導師</th>
+                <th>申請時間</th>
+                <th>狀態</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="applicationTable"></tbody>
+    </table>
+
+    <script>
+        const API = '/api';
+
+        async function loadApplications() {
+            try {
+                const res = await fetch(`${API}/admin/applications`);
+                const list = await res.json();
+                const tbody = document.getElementById('applicationTable');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">目前沒有申請資料</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(a => {
+                    let statusClass = '';
+                    let statusText = a.status || '待審核';
+                    if (statusText === '待審核' || statusText === 'pending') statusClass = 'status-pending';
+                    else if (statusText === '通過' || statusText === 'approved') statusClass = 'status-approved';
+                    else if (statusText === '未通過' || statusText === 'rejected') statusClass = 'status-rejected';
+                    
+                    return html`
+                    <tr>
+                        <td>${a.application_id}</td>
+                        <td>${a.student_name || '-'}</td>
+                        <td>${a.scholarship_name || '-'}</td>
+                        <td>${a.teacher_name || '-'}</td>
+                        <td>${a.apply_time ? new Date(a.apply_time).toLocaleDateString('zh-TW') : '-'}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                        <td>
+                            <button class="btn btn-danger" onclick="deleteApplication(${a.application_id})">刪除</button>
+                        </td>
+                    </tr>
+                `}).join('');
+            } catch (err) {
+                console.error('載入失敗', err);
+            }
+        }
+
+        async function deleteApplication(id) {
+            if (!confirm('確定要刪除此申請資料嗎？')) return;
+            try {
+                const res = await fetch(`${API}/admin/application/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('刪除成功');
+                    loadApplications();
+                } else {
+                    const data = await res.json();
+                    alert('刪除失敗：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('刪除失敗：' + err.message);
+            }
+        }
+
+        loadApplications();
+    </script>
+</body>
+</html>

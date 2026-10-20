@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>獎助學金管理</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "🏆"; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 25px; border-radius: 12px; max-width: 550px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; color: #343a40; }
+        .close { font-size: 28px; cursor: pointer; color: #666; }
+        .close:hover { color: #333; }
+        .btn-group { display: flex; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #343a40 0%, #212529 100%); }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>獎助學金管理</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>獎助學金名稱</th>
+                <th>提供單位</th>
+                <th>金額</th>
+                <th>申請期間</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="scholarshipTable"></tbody>
+    </table>
+
+    <!-- 編輯模態框 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ 編輯獎學金資料</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label>獎學金名稱</label>
+                    <input type="text" id="editTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>說明</label>
+                    <textarea id="editDesc"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>金額</label>
+                    <input type="number" id="editAmount" min="0">
+                </div>
+                <div class="form-group">
+                    <label>申請開始日期</label>
+                    <input type="date" id="editStartDate">
+                </div>
+                <div class="form-group">
+                    <label>申請截止日期</label>
+                    <input type="date" id="editEndDate">
+                </div>
+                <button type="submit" class="btn btn-primary">💾 儲存變更</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+
+        async function loadScholarships() {
+            try {
+                const res = await fetch(`${API}/scholarships`);
+                const list = await res.json();
+                const tbody = document.getElementById('scholarshipTable');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">目前沒有獎助學金資料</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(s => html`
+                    <tr>
+                        <td>${s.Scholarship_NUMBER}</td>
+                        <td>${s.title}</td>
+                        <td>${s.organization_name || '-'}</td>
+                        <td>${s.scholarship_amount ? Number(s.scholarship_amount).toLocaleString() + ' 元' : '-'}</td>
+                        <td>${formatDate(s.application_start_date)} ~ ${formatDate(s.application_deadline)}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-info" data-record="${JSON.stringify(s)}" onclick="openEdit(JSON.parse(this.dataset.record))">編輯</button>
+                                <button class="btn btn-danger" onclick="deleteScholarship(${s.Scholarship_NUMBER})">刪除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('載入失敗', err);
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('zh-TW');
+        }
+
+        function formatDateForInput(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toISOString().split('T')[0];
+        }
+
+        function openEdit(s) {
+            document.getElementById('editId').value = s.Scholarship_NUMBER;
+            document.getElementById('editTitle').value = s.title || '';
+            document.getElementById('editDesc').value = s.description || '';
+            document.getElementById('editAmount').value = s.scholarship_amount || '';
+            document.getElementById('editStartDate').value = formatDateForInput(s.application_start_date);
+            document.getElementById('editEndDate').value = formatDateForInput(s.application_deadline);
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+
+            try {
+                const res = await fetch(`${API}/admin/scholarship/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('editTitle').value,
+                        description: document.getElementById('editDesc').value,
+                        scholarship_amount: document.getElementById('editAmount').value,
+                        application_start_date: document.getElementById('editStartDate').value,
+                        application_deadline: document.getElementById('editEndDate').value
+                    })
+                });
+                if (res.ok) {
+                    alert('✅ 更新成功');
+                    closeModal();
+                    loadScholarships();
+                } else {
+                    alert('❌ 更新失敗');
+                }
+            } catch (err) {
+                alert('❌ 更新失敗：' + err.message);
+            }
+        });
+
+        async function deleteScholarship(id) {
+            if (!confirm('確定要刪除此獎助學金嗎？這將同時刪除所有相關的申請資料。')) return;
+            try {
+                const res = await fetch(`${API}/admin/scholarship/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('✅ 刪除成功');
+                    loadScholarships();
+                } else {
+                    const data = await res.json();
+                    alert('❌ 刪除失敗：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('❌ 刪除失敗：' + err.message);
+            }
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('editModal')) closeModal();
+        }
+
+        loadScholarships();
+    </script>
+</body>
+</html>

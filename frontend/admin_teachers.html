@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>導師管理</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "👨‍🏫"; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 25px; border-radius: 12px; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; color: #343a40; }
+        .close { font-size: 28px; cursor: pointer; color: #666; }
+        .close:hover { color: #333; }
+        .btn-group { display: flex; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #343a40 0%, #212529 100%); }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>導師管理</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>導師ID</th>
+                <th>使用者ID</th>
+                <th>姓名</th>
+                <th>系所</th>
+                <th>職稱</th>
+                <th>Email</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="teacherTable"></tbody>
+    </table>
+
+    <!-- 編輯模態框 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ 編輯導師資料</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label>姓名</label>
+                    <input type="text" id="editName" required>
+                </div>
+                <div class="form-group">
+                    <label>系所</label>
+                    <input type="text" id="editDept">
+                </div>
+                <div class="form-group">
+                    <label>職稱</label>
+                    <input type="text" id="editTitle">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="editEmail">
+                </div>
+                <button type="submit" class="btn btn-primary">💾 儲存變更</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+
+        async function loadTeachers() {
+            try {
+                const res = await fetch(`${API}/admin/teachers`);
+                const list = await res.json();
+                const tbody = document.getElementById('teacherTable');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">目前沒有導師資料</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(t => html`
+                    <tr>
+                        <td>${t.teacher_id}</td>
+                        <td>${t.user_id}</td>
+                        <td>${t.name || '-'}</td>
+                        <td>${t.department || '-'}</td>
+                        <td>${t.job_title || '-'}</td>
+                        <td>${t.email || '-'}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-info" data-record="${JSON.stringify(t)}" onclick="openEdit(JSON.parse(this.dataset.record))">編輯</button>
+                                <button class="btn btn-danger" onclick="deleteTeacher(${t.teacher_id}, '${t.user_id}')">刪除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('載入失敗', err);
+            }
+        }
+
+        function openEdit(t) {
+            document.getElementById('editId').value = t.teacher_id;
+            document.getElementById('editUserId').value = t.user_id;
+            document.getElementById('editName').value = t.name || '';
+            document.getElementById('editDept').value = t.department || '';
+            document.getElementById('editTitle').value = t.job_title || '';
+            document.getElementById('editEmail').value = t.email || '';
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const userId = document.getElementById('editUserId').value;
+
+            try {
+                const res = await fetch(`${API}/admin/teacher/${id}?userId=${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('editName').value,
+                        department: document.getElementById('editDept').value,
+                        job_title: document.getElementById('editTitle').value,
+                        email: document.getElementById('editEmail').value
+                    })
+                });
+                if (res.ok) {
+                    alert('✅ 更新成功');
+                    closeModal();
+                    loadTeachers();
+                } else {
+                    alert('❌ 更新失敗');
+                }
+            } catch (err) {
+                alert('❌ 更新失敗：' + err.message);
+            }
+        });
+
+        async function deleteTeacher(teacherId, userId) {
+            if (!confirm('確定要刪除此導師嗎？這將同時刪除該導師的所有推薦信和使用者帳號。')) return;
+            try {
+                const res = await fetch(`${API}/admin/teacher/${teacherId}?userId=${userId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('✅ 刪除成功');
+                    loadTeachers();
+                } else {
+                    const data = await res.json();
+                    alert('❌ 刪除失敗：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('❌ 刪除失敗：' + err.message);
+            }
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('editModal')) closeModal();
+        }
+
+        loadTeachers();
+    </script>
+</body>
+</html>

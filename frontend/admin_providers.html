@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>獎助單位管理</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #343a40; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "🏢"; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 25px; border-radius: 12px; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; color: #343a40; }
+        .close { font-size: 28px; cursor: pointer; color: #666; }
+        .close:hover { color: #333; }
+        .btn-group { display: flex; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #343a40 0%, #212529 100%); }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>獎助單位管理</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>單位ID</th>
+                <th>使用者ID</th>
+                <th>單位名稱</th>
+                <th>聯絡人</th>
+                <th>電話</th>
+                <th>Email</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="providerTable"></tbody>
+    </table>
+
+    <!-- 編輯模態框 -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ 編輯獎助單位資料</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label>單位名稱</label>
+                    <input type="text" id="editOrgName" required>
+                </div>
+                <div class="form-group">
+                    <label>聯絡人</label>
+                    <input type="text" id="editContact">
+                </div>
+                <div class="form-group">
+                    <label>電話</label>
+                    <input type="text" id="editPhone">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="editEmail">
+                </div>
+                <button type="submit" class="btn btn-primary">💾 儲存變更</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+
+        async function loadProviders() {
+            try {
+                const res = await fetch(`${API}/admin/providers`);
+                const list = await res.json();
+                const tbody = document.getElementById('providerTable');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">目前沒有獎助單位資料</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(p => html`
+                    <tr>
+                        <td>${p.provider_id}</td>
+                        <td>${p.user_id}</td>
+                        <td>${p.organization_name || '-'}</td>
+                        <td>${p.contact_person || '-'}</td>
+                        <td>${p.phone || '-'}</td>
+                        <td>${p.email || '-'}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-info" data-record="${JSON.stringify(p)}" onclick="openEdit(JSON.parse(this.dataset.record))">編輯</button>
+                                <button class="btn btn-danger" onclick="deleteProvider(${p.provider_id}, '${p.user_id}')">刪除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('載入失敗', err);
+            }
+        }
+
+        function openEdit(p) {
+            document.getElementById('editId').value = p.provider_id;
+            document.getElementById('editUserId').value = p.user_id;
+            document.getElementById('editOrgName').value = p.organization_name || '';
+            document.getElementById('editContact').value = p.contact_person || '';
+            document.getElementById('editPhone').value = p.phone || '';
+            document.getElementById('editEmail').value = p.email || '';
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const userId = document.getElementById('editUserId').value;
+
+            try {
+                const res = await fetch(`${API}/admin/provider/${id}?userId=${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        organization_name: document.getElementById('editOrgName').value,
+                        contact_person: document.getElementById('editContact').value,
+                        phone: document.getElementById('editPhone').value,
+                        email: document.getElementById('editEmail').value
+                    })
+                });
+                if (res.ok) {
+                    alert('✅ 更新成功');
+                    closeModal();
+                    loadProviders();
+                } else {
+                    alert('❌ 更新失敗');
+                }
+            } catch (err) {
+                alert('❌ 更新失敗：' + err.message);
+            }
+        });
+
+        async function deleteProvider(providerId, userId) {
+            if (!confirm('確定要刪除此獎助單位嗎？這將同時刪除該單位發布的所有獎學金和使用者帳號。')) return;
+            try {
+                const res = await fetch(`${API}/admin/provider/${providerId}?userId=${userId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('✅ 刪除成功');
+                    loadProviders();
+                } else {
+                    const data = await res.json();
+                    alert('❌ 刪除失敗：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('❌ 刪除失敗：' + err.message);
+            }
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('editModal')) closeModal();
+        }
+
+        loadProviders();
+    </script>
+</body>
+</html>

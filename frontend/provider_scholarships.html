@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>我的獎學金</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #28a745; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "🎓"; }
+        .status-open { background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; }
+        .status-closed { background: #f8d7da; color: #721c24; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; }
+        .status-upcoming { background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; }
+        .amount { color: #28a745; font-weight: 600; }
+        .app-count { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .summary-card .number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .summary-card .label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 0.85em;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>我發布的獎學金</h2>
+
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="number" id="totalCount">0</div>
+            <div class="label">📋 已發布獎學金</div>
+        </div>
+        <div class="summary-card">
+            <div class="number" id="openCount">0</div>
+            <div class="label">🟢 開放申請中</div>
+        </div>
+        <div class="summary-card">
+            <div class="number" id="totalApps">0</div>
+            <div class="label">📝 累計申請人數</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>編號</th>
+                <th>獎學金名稱</th>
+                <th>金額</th>
+                <th>申請期間</th>
+                <th>狀態</th>
+                <th>申請人數</th>
+            </tr>
+        </thead>
+        <tbody id="scholarshipList"></tbody>
+    </table>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+
+        async function loadScholarships() {
+            try {
+                const res = await fetch(`/api/provider/scholarships/${userId}`);
+                const data = await res.json();
+                const tbody = document.getElementById('scholarshipList');
+
+                if (data.error) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#dc3545;">載入失敗</td></tr>';
+                    return;
+                }
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#6c757d;">尚未發布任何獎學金</td></tr>';
+                    return;
+                }
+
+                const today = todayTaipei();
+                let openCount = 0;
+                let totalApps = 0;
+
+                tbody.innerHTML = data.map((s, index) => {
+                    const start = s.application_start_date;
+                    const end = s.application_deadline;
+                    
+                    let status, statusClass;
+                    if (today < start) {
+                        status = '尚未開放';
+                        statusClass = 'status-upcoming';
+                    } else if (today > end) {
+                        status = '已截止';
+                        statusClass = 'status-closed';
+                    } else {
+                        status = '開放中';
+                        statusClass = 'status-open';
+                        openCount++;
+                    }
+
+                    totalApps += s.application_count || 0;
+
+                    return html`
+                        <tr>
+                            <td>${s.Scholarship_NUMBER}</td>
+                            <td><strong>${s.title}</strong></td>
+                            <td class="amount">$${Number(s.scholarship_amount).toLocaleString()}</td>
+                            <td>${formatDate(s.application_start_date)} ~ ${formatDate(s.application_deadline)}</td>
+                            <td><span class="${statusClass}">${status}</span></td>
+                            <td><span class="app-count">${s.application_count || 0} 人</span></td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // 更新統計卡片
+                document.getElementById('totalCount').textContent = data.length;
+                document.getElementById('openCount').textContent = openCount;
+                document.getElementById('totalApps').textContent = totalApps;
+
+            } catch (e) {
+                console.error('載入失敗', e);
+                document.getElementById('scholarshipList').innerHTML = 
+                    '<tr><td colspan="6" style="text-align:center; color:#dc3545;">連線失敗</td></tr>';
+            }
+        }
+
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleDateString('zh-TW');
+        }
+
+        function viewDetail(id) {
+            alert(`獎學金編號：${id}\n\n請前往「管理申請案件」查看詳細申請資料。`);
+        }
+
+        loadScholarships();
+    </script>
+</body>
+</html>

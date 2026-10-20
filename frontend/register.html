@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>獎學金系統 - 註冊</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .register-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 500px;
+        }
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .register-header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .register-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .role-fields {
+            display: none;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #e1e1e1;
+        }
+        .role-fields.active {
+            display: block;
+        }
+        .role-fields h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 12px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #e1e1e1;
+        }
+        .btn-secondary:hover {
+            background: #e9e9e9;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+        .result.error {
+            display: block;
+            background-color: #ffe6e6;
+            color: #dc3545;
+            border: 1px solid #ffcccc;
+        }
+        .result.success {
+            display: block;
+            background-color: #e6ffe6;
+            color: #28a745;
+            border: 1px solid #ccffcc;
+        }
+        .section-title {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .required::after {
+            content: ' *';
+            color: #dc3545;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="register-header">
+            <h1>🎓 註冊新帳號</h1>
+            <p>請填寫以下資料完成註冊</p>
+        </div>
+
+        <div class="section-title">基本資料</div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="required" for="newUsername">帳號</label>
+                <input type="text" id="newUsername" placeholder="請輸入帳號">
+            </div>
+            <div class="form-group">
+                <label class="required" for="newPassword">密碼</label>
+                <input type="password" id="newPassword" placeholder="至少 8 個字元">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="required" for="newName">姓名/單位名稱</label>
+            <input type="text" id="newName" placeholder="請輸入姓名或單位名稱">
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="newPhoneNumber">電話號碼</label>
+                <input type="text" id="newPhoneNumber" placeholder="請輸入電話號碼">
+            </div>
+            <div class="form-group">
+                <label for="newEmail">電子郵件</label>
+                <input type="email" id="newEmail" placeholder="請輸入電子郵件">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="required" for="roleSelect">選擇身分</label>
+            <select id="roleSelect" onchange="toggleDepartmentInput()">
+                <option value="">請選擇您的身分</option>
+                <option value="student">學生</option>
+                <option value="teacher">老師</option>
+                <option value="unit">獎助單位</option>
+            </select>
+        </div>
+
+        <!-- 學生欄位 -->
+        <div id="studentFields" class="role-fields">
+            <h4>📚 學生資料</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="dept_student">所屬系所</label>
+                    <input type="text" id="dept_student" placeholder="例如：資訊工程系">
+                </div>
+                <div class="form-group">
+                    <label for="grade">年級</label>
+                    <input type="text" id="grade" placeholder="例如：3">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="stuID">學號</label>
+                <input type="text" id="stuID" placeholder="請輸入學號">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="bankCode">銀行代碼</label>
+                    <input type="text" id="bankCode" placeholder="例如：700">
+                </div>
+                <div class="form-group">
+                    <label for="bankAcc">銀行帳號</label>
+                    <input type="text" id="bankAcc" placeholder="請輸入銀行帳號">
+                </div>
+            </div>
+        </div>
+
+        <!-- 老師欄位 -->
+        <div id="teacherFields" class="role-fields">
+            <h4>👨‍🏫 教師資料</h4>
+            <div class="form-group">
+                <label for="dept_teacher">所屬系所</label>
+                <input type="text" id="dept_teacher" placeholder="例如：資訊工程系">
+            </div>
+        </div>
+
+        <!-- 獎助單位欄位 -->
+        <div id="unitFields" class="role-fields">
+            <h4>🏢 單位資料</h4>
+            <div class="form-group">
+                <label for="dept_unit">單位名稱</label>
+                <input type="text" id="dept_unit" placeholder="例如：台積電文教基金會">
+            </div>
+            <div class="form-group">
+                <label for="unit_contact">聯絡人</label>
+                <input type="text" id="unit_contact" placeholder="請輸入聯絡人姓名">
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="register()">註冊帳號</button>
+        
+        <a href="login.html" style="text-decoration: none;">
+            <button type="button" class="btn btn-secondary">返回登入</button>
+        </a>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        async function register() {
+            const resultDiv = document.getElementById('result');
+            const roleValue = document.getElementById('roleSelect').value;
+            
+            const payload = {
+                account: document.getElementById('newUsername').value,
+                password: document.getElementById('newPassword').value,
+                name: document.getElementById('newName').value,
+                phone: document.getElementById('newPhoneNumber').value,
+                email: document.getElementById('newEmail').value,
+                role: roleValue
+            };
+
+            // 根據角色加入額外資料
+            if (roleValue === 'student') {
+                payload.dept = document.getElementById('dept_student').value;
+                payload.grade = document.getElementById('grade').value;
+                payload.stuID = document.getElementById('stuID').value;
+                payload.bankAcc = document.getElementById('bankAcc').value;
+                payload.bankCode = document.getElementById('bankCode').value;
+            } else if (roleValue === 'teacher') {
+                payload.dept = document.getElementById('dept_teacher').value;
+            } else if (roleValue === 'unit') {
+                payload.dept_unit = document.getElementById('dept_unit').value;
+                payload.unitContact = document.getElementById('unit_contact').value;
+            }
+
+            // 驗證必填欄位
+            if (!payload.account || !payload.name || payload.password.length < 8 || !payload.role) {
+                resultDiv.className = 'result error';
+                resultDiv.innerText = '請填寫帳號、姓名、至少 8 字元的密碼與身分';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerText = '註冊成功！正在跳轉至登入頁面...';
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerText = '註冊失敗：' + data.message;
+                }
+            } catch (e) {
+                resultDiv.className = 'result error';
+                resultDiv.innerText = '連線失敗，請稍後再試';
+            }
+        }
+
+        function toggleDepartmentInput() {
+            const role = document.getElementById('roleSelect').value;
+            
+            // 取得所有區塊
+            const sections = {
+                student: document.getElementById('studentFields'),
+                teacher: document.getElementById('teacherFields'),
+                unit: document.getElementById('unitFields')
+            };
+
+            // 先全部移除 active 類別
+            Object.values(sections).forEach(sec => {
+                if (sec) sec.classList.remove('active');
+            });
+
+            // 根據角色顯示對應區塊
+            if (sections[role]) {
+                sections[role].classList.add('active');
+            }
+        }
+
+        // 確保重新整理頁面後也能正確顯示
+        window.onload = toggleDepartmentInput;
+    </script>
+</body>
+</html>

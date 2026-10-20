@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #28a745; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "📝"; }
+        th { background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%); }
+        .form-section h3 { color: #28a745; }
+        .btn-success { background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%); }
+        .btn-success:hover { box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4); }
+        .form-row { 
+            display: flex; 
+            gap: 20px; 
+            flex-wrap: wrap; 
+        }
+        .form-row .form-group { 
+            flex: 1; 
+            min-width: 200px; 
+        }
+        .form-row .form-group input {
+            max-width: 100%;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>發布新獎學金</h2>
+
+    <div class="form-section">
+        <h3>基本資訊</h3>
+        <div class="form-group">
+            <label>獎學金標題 *</label>
+            <input type="text" id="title" placeholder="請輸入獎學金名稱">
+        </div>
+        <div class="form-group">
+            <label>獎學金描述</label>
+            <textarea id="description" placeholder="請輸入獎學金說明、申請條件等..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>金額 (TWD) *</label>
+            <input type="number" id="amount" placeholder="請輸入獎學金金額" min="0">
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>申請時間</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>開始日期 *</label>
+                <input type="date" id="start_date">
+            </div>
+            <div class="form-group">
+                <label>截止日期 *</label>
+                <input type="date" id="end_date">
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-success" onclick="publishScholarship()">🎉 發布獎學金</button>
+    <div id="result" class="result"></div>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+
+        async function publishScholarship() {
+            const title = document.getElementById('title').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const amount = document.getElementById('amount').value;
+            const start_date = document.getElementById('start_date').value;
+            const end_date = document.getElementById('end_date').value;
+
+            if (!title || !amount || !start_date || !end_date) {
+                alert('請填寫所有必要欄位');
+                return;
+            }
+
+            if (new Date(end_date) < new Date(start_date)) {
+                alert('截止日期不能早於開始日期');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/scholarships', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        amount,
+                        start_date,
+                        end_date,
+                        provider_id: userId
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('result').innerText = '獎學金發布成功！';
+                    document.getElementById('result').className = 'result success';
+                    // 清空表單
+                    document.getElementById('title').value = '';
+                    document.getElementById('description').value = '';
+                    document.getElementById('amount').value = '';
+                    document.getElementById('start_date').value = '';
+                    document.getElementById('end_date').value = '';
+                } else {
+                    document.getElementById('result').innerText = '發布失敗';
+                    document.getElementById('result').className = 'result error';
+                }
+            } catch (e) {
+                document.getElementById('result').innerText = '連線失敗';
+                document.getElementById('result').className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

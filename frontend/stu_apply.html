@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <title>申請獎學金</title>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h2::before {
+            content: "📝";
+        }
+        .info-box {
+            display: none;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .info-box.show {
+            display: block;
+        }
+        .info-box strong {
+            color: #495057;
+        }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>線上申請獎學金</h2>
+
+    <div class="form-section">
+        <h3>📋 選擇獎學金</h3>
+        <div class="form-group">
+            <label>可申請的獎學金</label>
+            <select id="scholarshipSelect">
+                <option value="">請選擇獎學金...</option>
+            </select>
+        </div>
+        <div id="scholarshipInfo" class="info-box"></div>
+    </div>
+
+    <div class="form-section">
+        <h3>👨‍🏫 選擇推薦導師</h3>
+        <div class="form-group">
+            <label>導師 (推薦信撰寫人)</label>
+            <select id="teacherSelect">
+                <option value="">請選擇導師...</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>📊 填寫個人成績</h3>
+        <div class="form-group">
+            <label>班級排名</label>
+            <input type="number" id="ranking" placeholder="請輸入班級排名" min="1">
+        </div>
+        <div class="form-group">
+            <label>學業成績 (平均)</label>
+            <input type="number" id="grade" placeholder="請輸入平均成績" min="0" max="100" step="1">
+        </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="submitApplication()">📤 送出申請</button>
+    <div id="result" class="result"></div>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+
+        // 載入可申請的獎學金
+        async function loadScholarships() {
+            try {
+                const res = await fetch('/api/scholarships');
+                const data = await res.json();
+                const select = document.getElementById('scholarshipSelect');
+                
+                
+                if (data.error) {
+                    select.innerHTML = '<option value="">載入失敗</option>';
+                    console.error('API 錯誤:', data.error);
+                    return;
+                }
+
+                const today = todayTaipei();
+                const available = data.filter(s => {
+                    const start = s.application_start_date;
+                    const end = s.application_deadline;
+                    return today >= start && today <= end;
+                });
+
+
+                if (available.length === 0) {
+                    select.innerHTML = '<option value="">目前沒有可申請的獎學金</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">請選擇獎學金...</option>' + 
+                    available.map(s => html`<option value="${s.Scholarship_NUMBER}" data-info='${JSON.stringify(s)}'>${s.title} (${s.organization_name || '未知單位'})</option>`).join('');
+            } catch (e) {
+                console.error('載入獎學金失敗', e);
+                document.getElementById('scholarshipSelect').innerHTML = '<option value="">載入失敗</option>';
+            }
+        }
+
+        // 載入所有老師
+        async function loadTeachers() {
+            try {
+                const res = await fetch('/api/teachers');
+                const data = await res.json();
+                const select = document.getElementById('teacherSelect');
+                
+
+                if (data.error) {
+                    select.innerHTML = '<option value="">載入失敗</option>';
+                    console.error('API 錯誤:', data.error);
+                    return;
+                }
+                
+                if (data.length === 0) {
+                    select.innerHTML = '<option value="">目前沒有可選的導師</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">請選擇導師...</option>' + 
+                    data.map(t => html`<option value="${t.teacher_id}">${t.username} (${t.department || '未設定系所'})</option>`).join('');
+            } catch (e) {
+                console.error('載入導師失敗', e);
+                document.getElementById('teacherSelect').innerHTML = '<option value="">載入失敗</option>';
+            }
+        }
+
+        // 選擇獎學金時顯示詳情
+        document.getElementById('scholarshipSelect').addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            const infoDiv = document.getElementById('scholarshipInfo');
+            
+            if (this.value && selected.dataset.info) {
+                try {
+                    const info = JSON.parse(selected.dataset.info.replace(/&#39;/g, "'"));
+                    infoDiv.innerHTML = html`
+                        <strong>📋 獎學金說明：</strong>${info.description || '無'}<br>
+                        <strong>💰 金額：</strong>$${Number(info.scholarship_amount).toLocaleString()}<br>
+                        <strong>📅 截止日期：</strong>${new Date(info.application_deadline).toLocaleDateString('zh-TW')}<br>
+                        <strong>🏢 提供單位：</strong>${info.organization_name || '未知'}
+                    `;
+                    infoDiv.classList.add('show');
+                } catch (e) {
+                    console.error('解析獎學金資料失敗', e);
+                }
+            } else {
+                infoDiv.classList.remove('show');
+            }
+        });
+
+        // 送出申請
+        async function submitApplication() {
+            const scholarshipId = document.getElementById('scholarshipSelect').value;
+            const teacherId = document.getElementById('teacherSelect').value;
+            const ranking = document.getElementById('ranking').value;
+            const grade = document.getElementById('grade').value;
+
+            if (!scholarshipId) {
+                alert('請選擇獎學金');
+                return;
+            }
+            if (!teacherId) {
+                alert('請選擇導師');
+                return;
+            }
+            if (!ranking || !grade) {
+                alert('請填寫排名和成績');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/student/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        scholarship_id: scholarshipId,
+                        teacher_id: teacherId,
+                        ranking: ranking,
+                        grade: grade
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('result').innerText = '✅ 申請成功！';
+                    document.getElementById('result').className = 'result success';
+                    // 清空表單
+                    document.getElementById('scholarshipSelect').value = '';
+                    document.getElementById('teacherSelect').value = '';
+                    document.getElementById('ranking').value = '';
+                    document.getElementById('grade').value = '';
+                    document.getElementById('scholarshipInfo').classList.remove('show');
+                } else {
+                    document.getElementById('result').innerText = '❌ 申請失敗：' + data.message;
+                    document.getElementById('result').className = 'result error';
+                }
+            } catch (e) {
+                document.getElementById('result').innerText = '❌ 連線失敗';
+                document.getElementById('result').className = 'result error';
+            }
+        }
+
+        // 頁面載入時執行
+        loadScholarships();
+        loadTeachers();
+    </script>
+</body>
+</html>

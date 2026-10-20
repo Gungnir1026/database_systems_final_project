@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="shared.js"></script>
+    <link rel="stylesheet" href="common.css">
+    <style>
+        h2 { border-color: #2c5aa0; display: flex; align-items: center; gap: 10px; }
+        h2::before { content: "👤"; }
+        th { background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%); }
+        .form-section h3 { color: #2c5aa0; }
+        .btn-success { background: linear-gradient(135deg, #2c5aa0 0%, #1a3d6e 100%); }
+        .btn-success:hover { box-shadow: 0 5px 15px rgba(44, 90, 160, 0.4); }
+    </style>
+    <style>
+        input, select, textarea { max-width: 100%; }
+        .form-row { flex-wrap: wrap; }
+        table { font-size: 0.92rem; }
+        @media (max-width: 700px) {
+            header { flex-wrap: wrap; gap: 12px; padding: 12px !important; }
+            header h2 { font-size: 20px; }
+            #container { flex-direction: column; min-height: 0; }
+            aside { width: 100% !important; display: flex; overflow-x: auto; padding: 10px !important; flex-shrink: 0; }
+            aside a { white-space: nowrap; margin: 0 6px 0 0; padding: 8px 10px !important; }
+            main { min-height: 0; flex: 1; }
+            .login-container, .register-container { padding: 24px; }
+            body { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h2>個人資料維護</h2>
+    
+    <div class="form-section">
+        <h3>帳號資訊</h3>
+        <div class="form-group">
+            <label>帳號 (不可修改)</label>
+            <input type="text" id="account" readonly>
+        </div>
+        <div class="form-group">
+            <label>密碼</label>
+            <input type="password" id="password" placeholder="輸入新密碼 (留空則不修改)">
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>基本資料</h3>
+        <div class="form-group">
+            <label>姓名</label>
+            <input type="text" id="username">
+        </div>
+        <div class="form-group">
+            <label>電話</label>
+            <input type="text" id="phone">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email">
+        </div>
+        <div class="form-group">
+            <label>所屬系所</label>
+            <input type="text" id="department">
+        </div>
+    </div>
+
+    <button class="btn btn-success" onclick="saveProfile()">💾 儲存修改</button>
+    <div id="result" class="result"></div>
+
+    <script>
+        const userId = localStorage.getItem('userId');
+
+        // 載入個人資料
+        async function loadProfile() {
+            try {
+                const res = await fetch(`/api/teacher/profile/${userId}`);
+                const data = await res.json();
+                if (data) {
+                    document.getElementById('account').value = data.id || '';
+                    document.getElementById('username').value = data.username || '';
+                    document.getElementById('phone').value = data.phone_number || '';
+                    document.getElementById('email').value = data.email || '';
+                    document.getElementById('department').value = data.department || '';
+                }
+            } catch (e) {
+                document.getElementById('result').innerText = '載入資料失敗';
+                document.getElementById('result').className = 'result error';
+            }
+        }
+
+        // 儲存個人資料
+        async function saveProfile() {
+            const payload = {
+                password: document.getElementById('password').value,
+                username: document.getElementById('username').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                department: document.getElementById('department').value
+            };
+
+            try {
+                const res = await fetch(`/api/teacher/profile/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('result').innerText = '資料更新成功！';
+                    document.getElementById('result').className = 'result success';
+                    document.getElementById('password').value = '';
+                } else {
+                    document.getElementById('result').innerText = '更新失敗：' + data.message;
+                    document.getElementById('result').className = 'result error';
+                }
+            } catch (e) {
+                document.getElementById('result').innerText = '連線失敗';
+                document.getElementById('result').className = 'result error';
+            }
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>
